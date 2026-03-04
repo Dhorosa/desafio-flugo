@@ -241,10 +241,7 @@ function App() {
           }}
         >
           <Typography variant="h5" sx={{ color: '#1f2937', fontWeight: 800 }}>
-            <Box component="span" sx={{ color: 'primary.main', mr: 0.5 }}>
-              e
-            </Box>
-            flugo
+            Flugo
           </Typography>
           <Stack spacing={1.5}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
@@ -270,7 +267,7 @@ function App() {
                   justifyContent="space-between"
                   spacing={2}
                 >
-                  <Typography variant="h4" sx={{ fontSize: 44, fontWeight: 700 }}>
+                  <Typography variant="h4" sx={{ fontSize: { xs: 30, md: 44 }, fontWeight: 700 }}>
                     Colaboradores
                   </Typography>
                   <Button variant="contained" onClick={openCreateForm} sx={{ px: 3, py: 1.2 }}>
@@ -279,6 +276,7 @@ function App() {
                 </Stack>
 
                 <Paper sx={{ overflow: 'hidden', borderRadius: 3 }}>
+                  <Box sx={{ overflowX: 'auto' }}>
                   <Table>
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#f3f5f7' }}>
@@ -349,6 +347,7 @@ function App() {
                       ))}
                     </TableBody>
                   </Table>
+                  </Box>
                 </Paper>
               </Stack>
             ) : (
@@ -370,8 +369,8 @@ function App() {
                   <Typography color="text.secondary">{progress}%</Typography>
                 </Stack>
 
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={5} alignItems="flex-start">
-                  <Stack sx={{ minWidth: 190 }} spacing={4}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} alignItems="flex-start">
+                  <Stack sx={{ minWidth: { xs: 0, md: 190 }, width: { xs: '100%', md: 'auto' } }} spacing={2.5}>
                     {formSteps.map((label, index) => {
                       const completed = activeStep > index
                       const active = activeStep === index
@@ -401,7 +400,7 @@ function App() {
                     })}
                   </Stack>
 
-                  <Box sx={{ flex: 1, minWidth: 320 }}>
+                  <Box sx={{ flex: 1, width: '100%', minWidth: { xs: 0, md: 320 } }}>
                     <Typography variant="h4" sx={{ mb: 3, color: '#64748b', fontWeight: 700 }}>
                       {activeStep === 0 ? 'Informacoes Basicas' : 'Informacoes Profissionais'}
                     </Typography>
@@ -572,7 +571,12 @@ function App() {
 
                       <Divider sx={{ my: 4 }} />
 
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        justifyContent="space-between"
+                        alignItems={{ xs: 'stretch', sm: 'center' }}
+                        spacing={2}
+                      >
                         <Stack direction="row" spacing={2}>
                           <Button variant="text" onClick={goBackStep} sx={{ fontWeight: 700 }}>
                             Voltar
@@ -592,11 +596,20 @@ function App() {
                         </Stack>
 
                         {activeStep === 0 ? (
-                          <Button variant="contained" onClick={goNextStep} sx={{ px: 3, py: 1.2 }}>
+                          <Button
+                            variant="contained"
+                            onClick={goNextStep}
+                            sx={{ px: 3, py: 1.2, width: { xs: '100%', sm: 'auto' } }}
+                          >
                             Proximo
                           </Button>
                         ) : (
-                          <Button type="submit" variant="contained" disabled={isSavingEmployee} sx={{ px: 3, py: 1.2 }}>
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={isSavingEmployee}
+                            sx={{ px: 3, py: 1.2, width: { xs: '100%', sm: 'auto' } }}
+                          >
                             Concluir
                           </Button>
                         )}
