@@ -255,7 +255,13 @@ function App() {
 
         <Grid size={{ xs: 12, md: 9 }} sx={{ p: { xs: 2, md: 5 } }}>
           <Stack spacing={3}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography
+                variant="h6"
+                sx={{ display: { xs: 'block', md: 'none' }, color: '#1f2937', fontWeight: 800 }}
+              >
+                Flugo
+              </Typography>
               <Avatar alt="Recruiter" src="https://i.pravatar.cc/100?img=12" />
             </Box>
 
