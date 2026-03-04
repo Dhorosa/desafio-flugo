@@ -11,24 +11,24 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import type { Employee, EmployeeInput } from '../types/employee'
+import type { Colaborador, EntradaColaborador } from '../types/employee'
 
-const EMPLOYEE_COLLECTION = 'employees'
+const COLECAO_COLABORADORES = 'employees'
 
-export const subscribeEmployees = (
-  onNext: (employees: Employee[]) => void,
-  onError: (error: Error) => void,
+export const listarColaboradores = (
+  aoReceber: (colaboradores: Colaborador[]) => void,
+  aoFalhar: (erro: Error) => void,
 ) => {
-  const employeesQuery = query(
-    collection(db, EMPLOYEE_COLLECTION),
+  const consultaColaboradores = query(
+    collection(db, COLECAO_COLABORADORES),
     orderBy('createdAt', 'desc'),
   )
 
   return onSnapshot(
-    employeesQuery,
+    consultaColaboradores,
     (snapshot) => {
-      const employees = snapshot.docs.map((doc) => {
-        const data = doc.data() as Omit<Employee, 'id' | 'createdAt'> & {
+      const colaboradores = snapshot.docs.map((doc) => {
+        const data = doc.data() as Omit<Colaborador, 'id' | 'createdAt'> & {
           createdAt?: Timestamp
         }
 
@@ -39,27 +39,27 @@ export const subscribeEmployees = (
         }
       })
 
-      onNext(employees)
+      aoReceber(colaboradores)
     },
-    (firestoreError) => {
-      onError(new Error(firestoreError.message))
+    (erroFirestore) => {
+      aoFalhar(new Error(erroFirestore.message))
     },
   )
 }
 
-export const createEmployee = async (employee: EmployeeInput) => {
-  await addDoc(collection(db, EMPLOYEE_COLLECTION), {
-    ...employee,
+export const criarColaborador = async (colaborador: EntradaColaborador) => {
+  await addDoc(collection(db, COLECAO_COLABORADORES), {
+    ...colaborador,
     createdAt: serverTimestamp(),
   })
 }
 
-export const updateEmployee = async (employeeId: string, employee: EmployeeInput) => {
-  const employeeRef = doc(db, EMPLOYEE_COLLECTION, employeeId)
-  await updateDoc(employeeRef, employee)
+export const atualizarColaborador = async (idColaborador: string, colaborador: EntradaColaborador) => {
+  const referenciaColaborador = doc(db, COLECAO_COLABORADORES, idColaborador)
+  await updateDoc(referenciaColaborador, colaborador)
 }
 
-export const deleteEmployee = async (employeeId: string) => {
-  const employeeRef = doc(db, EMPLOYEE_COLLECTION, employeeId)
-  await deleteDoc(employeeRef)
+export const excluirColaborador = async (idColaborador: string) => {
+  const referenciaColaborador = doc(db, COLECAO_COLABORADORES, idColaborador)
+  await deleteDoc(referenciaColaborador)
 }

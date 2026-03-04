@@ -32,14 +32,14 @@ import { Controller, useForm } from 'react-hook-form'
 import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import {
-  createEmployee,
-  deleteEmployee,
-  subscribeEmployees,
-  updateEmployee,
+  criarColaborador,
+  excluirColaborador,
+  listarColaboradores,
+  atualizarColaborador,
 } from './services/employees'
-import type { Employee } from './types/employee'
+import type { Colaborador } from './types/employee'
 
-const formSchema = z.object({
+const esquemaFormulario = z.object({
   name: z.string().min(3, 'Informe o nome completo.'),
   email: z.string().email('Informe um e-mail valido.'),
   phone: z
@@ -56,20 +56,20 @@ const formSchema = z.object({
   startDate: z.string().min(1, 'Informe a data de admissao.'),
 })
 
-type FormValues = z.infer<typeof formSchema>
+type ValoresFormulario = z.infer<typeof esquemaFormulario>
 
-const formSteps = ['Infos Basicas', 'Infos Profissionais']
+const etapasFormulario = ['Infos Basicas', 'Infos Profissionais']
 
-const stepFields: Array<Array<keyof FormValues>> = [
+const camposPorEtapa: Array<Array<keyof ValoresFormulario>> = [
   ['name', 'email', 'phone', 'birthDate', 'status'],
   ['department', 'role', 'manager', 'workModel', 'salaryRange', 'startDate'],
 ]
 
-const departments = ['Design', 'TI', 'Marketing', 'Produto', 'Financeiro', 'RH']
-const workModels: FormValues['workModel'][] = ['Presencial', 'Hibrido', 'Remoto']
-const salaryRanges = ['R$ 2.000 - R$ 4.000', 'R$ 4.000 - R$ 7.000', 'R$ 7.000 - R$ 12.000', 'R$ 12.000+']
+const departamentos = ['Design', 'TI', 'Marketing', 'Produto', 'Financeiro', 'RH']
+const modelosTrabalho: ValoresFormulario['workModel'][] = ['Presencial', 'Hibrido', 'Remoto']
+const faixasSalariais = ['R$ 2.000 - R$ 4.000', 'R$ 4.000 - R$ 7.000', 'R$ 7.000 - R$ 12.000', 'R$ 12.000+']
 
-const defaultValues: FormValues = {
+const valoresIniciais: ValoresFormulario = {
   name: '',
   email: '',
   phone: '',
@@ -84,15 +84,15 @@ const defaultValues: FormValues = {
 }
 
 function App() {
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [viewMode, setViewMode] = useState<'list' | 'form'>('list')
-  const [activeStep, setActiveStep] = useState(0)
-  const [isLoadingEmployees, setIsLoadingEmployees] = useState(true)
-  const [isSavingEmployee, setIsSavingEmployee] = useState(false)
-  const [isDeletingEmployee, setIsDeletingEmployee] = useState(false)
-  const [employeeError, setEmployeeError] = useState<string | null>(null)
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
+  const [colaboradores, setColaboradores] = useState<Colaborador[]>([])
+  const [modoVisualizacao, setModoVisualizacao] = useState<'list' | 'form'>('list')
+  const [etapaAtiva, setEtapaAtiva] = useState(0)
+  const [estaCarregandoColaboradores, setEstaCarregandoColaboradores] = useState(true)
+  const [estaSalvandoColaborador, setEstaSalvandoColaborador] = useState(false)
+  const [estaExcluindoColaborador, setEstaExcluindoColaborador] = useState(false)
+  const [erroColaborador, setErroColaborador] = useState<string | null>(null)
+  const [colaboradorEmEdicao, setColaboradorEmEdicao] = useState<Colaborador | null>(null)
+  const [colaboradorParaExcluir, setColaboradorParaExcluir] = useState<Colaborador | null>(null)
 
   const {
     control,
@@ -101,130 +101,130 @@ function App() {
     trigger,
     reset,
     formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  } = useForm<ValoresFormulario>({
+    resolver: zodResolver(esquemaFormulario),
     mode: 'onTouched',
-    defaultValues,
+    defaultValues: valoresIniciais,
   })
 
-  const initialsColor = useMemo(
+  const coresAvatar = useMemo(
     () => ['#ffe7e7', '#eaf2ff', '#fff4d8', '#dcfce7', '#fae8ff', '#e0f2fe'],
     [],
   )
 
   useEffect(() => {
-    const unsubscribe = subscribeEmployees(
-      (nextEmployees) => {
-        setEmployees(nextEmployees)
-        setEmployeeError(null)
-        setIsLoadingEmployees(false)
+    const unsubscribe = listarColaboradores(
+      (proximosColaboradores) => {
+        setColaboradores(proximosColaboradores)
+        setErroColaborador(null)
+        setEstaCarregandoColaboradores(false)
       },
       (error) => {
-        setEmployeeError(error.message)
-        setIsLoadingEmployees(false)
+        setErroColaborador(error.message)
+        setEstaCarregandoColaboradores(false)
       },
     )
 
     return () => unsubscribe()
   }, [])
 
-  const openCreateForm = () => {
-    setEditingEmployee(null)
-    setActiveStep(0)
-    setEmployeeError(null)
-    reset(defaultValues)
-    setViewMode('form')
+  const abrirFormularioCriacao = () => {
+    setColaboradorEmEdicao(null)
+    setEtapaAtiva(0)
+    setErroColaborador(null)
+    reset(valoresIniciais)
+    setModoVisualizacao('form')
   }
 
-  const openEditForm = (employee: Employee) => {
-    setEditingEmployee(employee)
-    setActiveStep(0)
-    setEmployeeError(null)
+  const abrirFormularioEdicao = (colaborador: Colaborador) => {
+    setColaboradorEmEdicao(colaborador)
+    setEtapaAtiva(0)
+    setErroColaborador(null)
     reset({
-      name: employee.name,
-      email: employee.email,
-      phone: employee.phone ?? '',
-      birthDate: employee.birthDate ?? '',
-      status: employee.status,
-      department: employee.department ?? '',
-      role: employee.role ?? '',
-      manager: employee.manager ?? '',
-      workModel: employee.workModel ?? 'Hibrido',
-      salaryRange: employee.salaryRange ?? '',
-      startDate: employee.startDate ?? '',
+      name: colaborador.name,
+      email: colaborador.email,
+      phone: colaborador.phone ?? '',
+      birthDate: colaborador.birthDate ?? '',
+      status: colaborador.status,
+      department: colaborador.department ?? '',
+      role: colaborador.role ?? '',
+      manager: colaborador.manager ?? '',
+      workModel: colaborador.workModel ?? 'Hibrido',
+      salaryRange: colaborador.salaryRange ?? '',
+      startDate: colaborador.startDate ?? '',
     })
-    setViewMode('form')
+    setModoVisualizacao('form')
   }
 
-  const goToList = () => {
-    setViewMode('list')
-    setActiveStep(0)
-    setEditingEmployee(null)
-    reset(defaultValues)
+  const voltarParaLista = () => {
+    setModoVisualizacao('list')
+    setEtapaAtiva(0)
+    setColaboradorEmEdicao(null)
+    reset(valoresIniciais)
   }
 
-  const goNextStep = async () => {
-    const fields = stepFields[activeStep]
-    const isStepValid = await trigger(fields)
+  const avancarEtapa = async () => {
+    const campos = camposPorEtapa[etapaAtiva]
+    const etapaValida = await trigger(campos)
 
-    if (!isStepValid) {
+    if (!etapaValida) {
       return
     }
 
-    if (activeStep < formSteps.length - 1) {
-      setActiveStep((current) => current + 1)
+    if (etapaAtiva < etapasFormulario.length - 1) {
+      setEtapaAtiva((atual) => atual + 1)
     }
   }
 
-  const goBackStep = () => {
-    if (activeStep === 0) {
-      goToList()
+  const retornarEtapa = () => {
+    if (etapaAtiva === 0) {
+      voltarParaLista()
       return
     }
 
-    setActiveStep((current) => Math.max(current - 1, 0))
+    setEtapaAtiva((atual) => Math.max(atual - 1, 0))
   }
 
-  const submitForm = handleSubmit(async (data) => {
+  const enviarFormulario = handleSubmit(async (data) => {
     try {
-      setIsSavingEmployee(true)
-      setEmployeeError(null)
+      setEstaSalvandoColaborador(true)
+      setErroColaborador(null)
 
-      if (editingEmployee) {
-        await updateEmployee(editingEmployee.id, data)
+      if (colaboradorEmEdicao) {
+        await atualizarColaborador(colaboradorEmEdicao.id, data)
       } else {
-        await createEmployee(data)
+        await criarColaborador(data)
       }
 
-      goToList()
+      voltarParaLista()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Falha ao salvar colaborador.'
-      setEmployeeError(message)
+      const mensagem = error instanceof Error ? error.message : 'Falha ao salvar colaborador.'
+      setErroColaborador(mensagem)
     } finally {
-      setIsSavingEmployee(false)
+      setEstaSalvandoColaborador(false)
     }
   })
 
-  const confirmDeleteEmployee = async () => {
-    if (!deleteTarget) {
+  const confirmarExclusaoColaborador = async () => {
+    if (!colaboradorParaExcluir) {
       return
     }
 
     try {
-      setIsDeletingEmployee(true)
-      setEmployeeError(null)
-      await deleteEmployee(deleteTarget.id)
-      setDeleteTarget(null)
-      goToList()
+      setEstaExcluindoColaborador(true)
+      setErroColaborador(null)
+      await excluirColaborador(colaboradorParaExcluir.id)
+      setColaboradorParaExcluir(null)
+      voltarParaLista()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Falha ao excluir colaborador.'
-      setEmployeeError(message)
+      const mensagem = error instanceof Error ? error.message : 'Falha ao excluir colaborador.'
+      setErroColaborador(mensagem)
     } finally {
-      setIsDeletingEmployee(false)
+      setEstaExcluindoColaborador(false)
     }
   }
 
-  const progress = activeStep === 0 ? 0 : 50
+  const progresso = etapaAtiva === 0 ? 0 : 50
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -259,7 +259,7 @@ function App() {
               <Avatar alt="Recruiter" src="https://i.pravatar.cc/100?img=12" />
             </Box>
 
-            {viewMode === 'list' ? (
+            {modoVisualizacao === 'list' ? (
               <Stack spacing={3}>
                 <Stack
                   direction={{ xs: 'column', sm: 'row' }}
@@ -270,7 +270,7 @@ function App() {
                   <Typography variant="h4" sx={{ fontSize: { xs: 30, md: 44 }, fontWeight: 700 }}>
                     Colaboradores
                   </Typography>
-                  <Button variant="contained" onClick={openCreateForm} sx={{ px: 3, py: 1.2 }}>
+                  <Button variant="contained" onClick={abrirFormularioCriacao} sx={{ px: 3, py: 1.2 }}>
                     Novo Colaborador
                   </Button>
                 </Stack>
@@ -290,55 +290,55 @@ function App() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {isLoadingEmployees && (
+                      {estaCarregandoColaboradores && (
                         <TableRow>
                           <TableCell colSpan={5}>Carregando colaboradores...</TableCell>
                         </TableRow>
                       )}
-                      {!isLoadingEmployees && employees.length === 0 && (
+                      {!estaCarregandoColaboradores && colaboradores.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={5}>Nenhum colaborador cadastrado.</TableCell>
                         </TableRow>
                       )}
-                      {employees.map((employee, index) => (
-                        <TableRow key={employee.id} hover>
+                      {colaboradores.map((colaborador, index) => (
+                        <TableRow key={colaborador.id} hover>
                           <TableCell>
                             <Stack direction="row" spacing={1.5} alignItems="center">
                               <Avatar
                                 sx={{
                                   width: 34,
                                   height: 34,
-                                  bgcolor: initialsColor[index % initialsColor.length],
+                                  bgcolor: coresAvatar[index % coresAvatar.length],
                                   color: '#111827',
                                   fontSize: 14,
                                   fontWeight: 700,
                                 }}
                               >
-                                {employee.name
+                                {colaborador.name
                                   .split(' ')
                                   .slice(0, 2)
                                   .map((part) => part[0])
                                   .join('')}
                               </Avatar>
-                              <Typography>{employee.name}</Typography>
+                              <Typography>{colaborador.name}</Typography>
                             </Stack>
                           </TableCell>
-                          <TableCell>{employee.email}</TableCell>
-                          <TableCell>{employee.department}</TableCell>
+                          <TableCell>{colaborador.email}</TableCell>
+                          <TableCell>{colaborador.department}</TableCell>
                           <TableCell>
                             <Chip
-                              label={employee.status}
-                              color={employee.status === 'Ativo' ? 'success' : 'error'}
+                              label={colaborador.status}
+                              color={colaborador.status === 'Ativo' ? 'success' : 'error'}
                               size="small"
                               variant="outlined"
                             />
                           </TableCell>
                           <TableCell align="right">
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
-                              <Button size="small" onClick={() => openEditForm(employee)}>
+                              <Button size="small" onClick={() => abrirFormularioEdicao(colaborador)}>
                                 Alterar
                               </Button>
-                              <Button size="small" color="error" onClick={() => setDeleteTarget(employee)}>
+                              <Button size="small" color="error" onClick={() => setColaboradorParaExcluir(colaborador)}>
                                 Excluir
                               </Button>
                             </Stack>
@@ -363,17 +363,17 @@ function App() {
                 <Stack direction="row" spacing={1} alignItems="center">
                   <LinearProgress
                     variant="determinate"
-                    value={progress}
+                    value={progresso}
                     sx={{ flex: 1, height: 6, borderRadius: 999, bgcolor: '#d4f5e2' }}
                   />
-                  <Typography color="text.secondary">{progress}%</Typography>
+                  <Typography color="text.secondary">{progresso}%</Typography>
                 </Stack>
 
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} alignItems="flex-start">
                   <Stack sx={{ minWidth: { xs: 0, md: 190 }, width: { xs: '100%', md: 'auto' } }} spacing={2.5}>
-                    {formSteps.map((label, index) => {
-                      const completed = activeStep > index
-                      const active = activeStep === index
+                    {etapasFormulario.map((label, index) => {
+                      const etapaConcluida = etapaAtiva > index
+                      const etapaAtual = etapaAtiva === index
 
                       return (
                         <Stack key={label} direction="row" spacing={1.5} alignItems="center">
@@ -382,17 +382,17 @@ function App() {
                               width: 34,
                               height: 34,
                               borderRadius: '50%',
-                              bgcolor: completed || active ? '#22c55e' : '#e5e7eb',
-                              color: completed || active ? '#fff' : '#64748b',
+                              bgcolor: etapaConcluida || etapaAtual ? '#22c55e' : '#e5e7eb',
+                              color: etapaConcluida || etapaAtual ? '#fff' : '#64748b',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               fontWeight: 700,
                             }}
                           >
-                            {completed ? '?' : index + 1}
+                            {etapaConcluida ? 'V' : index + 1}
                           </Box>
-                          <Typography sx={{ fontWeight: active || completed ? 700 : 600, color: '#334155' }}>
+                          <Typography sx={{ fontWeight: etapaAtual || etapaConcluida ? 700 : 600, color: '#334155' }}>
                             {label}
                           </Typography>
                         </Stack>
@@ -402,11 +402,11 @@ function App() {
 
                   <Box sx={{ flex: 1, width: '100%', minWidth: { xs: 0, md: 320 } }}>
                     <Typography variant="h4" sx={{ mb: 3, color: '#64748b', fontWeight: 700 }}>
-                      {activeStep === 0 ? 'Informacoes Basicas' : 'Informacoes Profissionais'}
+                      {etapaAtiva === 0 ? 'Informacoes Basicas' : 'Informacoes Profissionais'}
                     </Typography>
 
-                    <Box component="form" onSubmit={submitForm} noValidate>
-                      {activeStep === 0 && (
+                    <Box component="form" onSubmit={enviarFormulario} noValidate>
+                      {etapaAtiva === 0 && (
                         <Grid container spacing={2}>
                           <Grid size={{ xs: 12 }}>
                             <TextField
@@ -470,7 +470,7 @@ function App() {
                         </Grid>
                       )}
 
-                      {activeStep === 1 && (
+                      {etapaAtiva === 1 && (
                         <Grid container spacing={2}>
                           <Grid size={{ xs: 12, md: 6 }}>
                             <FormControl fullWidth error={Boolean(errors.department)}>
@@ -480,7 +480,7 @@ function App() {
                                 control={control}
                                 render={({ field }) => (
                                   <Select labelId="department-label" label="Departamento" {...field}>
-                                    {departments.map((department) => (
+                                    {departamentos.map((department) => (
                                       <MenuItem key={department} value={department}>
                                         {department}
                                       </MenuItem>
@@ -522,7 +522,7 @@ function App() {
                                 control={control}
                                 render={({ field }) => (
                                   <Select labelId="work-model-label" label="Modelo de trabalho" {...field}>
-                                    {workModels.map((workModel) => (
+                                    {modelosTrabalho.map((workModel) => (
                                       <MenuItem key={workModel} value={workModel}>
                                         {workModel}
                                       </MenuItem>
@@ -541,7 +541,7 @@ function App() {
                                 control={control}
                                 render={({ field }) => (
                                   <Select labelId="salary-range-label" label="Faixa salarial" {...field}>
-                                    {salaryRanges.map((salaryRange) => (
+                                    {faixasSalariais.map((salaryRange) => (
                                       <MenuItem key={salaryRange} value={salaryRange}>
                                         {salaryRange}
                                       </MenuItem>
@@ -578,16 +578,16 @@ function App() {
                         spacing={2}
                       >
                         <Stack direction="row" spacing={2}>
-                          <Button variant="text" onClick={goBackStep} sx={{ fontWeight: 700 }}>
+                          <Button variant="text" onClick={retornarEtapa} sx={{ fontWeight: 700 }}>
                             Voltar
                           </Button>
 
-                          {editingEmployee && activeStep === 1 && (
+                          {colaboradorEmEdicao && etapaAtiva === 1 && (
                             <Button
                               variant="text"
                               color="error"
-                              onClick={() => setDeleteTarget(editingEmployee)}
-                              disabled={isDeletingEmployee}
+                              onClick={() => setColaboradorParaExcluir(colaboradorEmEdicao)}
+                              disabled={estaExcluindoColaborador}
                               sx={{ fontWeight: 700 }}
                             >
                               Excluir
@@ -595,10 +595,10 @@ function App() {
                           )}
                         </Stack>
 
-                        {activeStep === 0 ? (
+                        {etapaAtiva === 0 ? (
                           <Button
                             variant="contained"
-                            onClick={goNextStep}
+                            onClick={avancarEtapa}
                             sx={{ px: 3, py: 1.2, width: { xs: '100%', sm: 'auto' } }}
                           >
                             Proximo
@@ -607,7 +607,7 @@ function App() {
                           <Button
                             type="submit"
                             variant="contained"
-                            disabled={isSavingEmployee}
+                            disabled={estaSalvandoColaborador}
                             sx={{ px: 3, py: 1.2, width: { xs: '100%', sm: 'auto' } }}
                           >
                             Concluir
@@ -620,27 +620,27 @@ function App() {
               </Stack>
             )}
 
-            {employeeError && (
+            {erroColaborador && (
               <Typography color="error" variant="body2">
-                Erro de persistencia: {employeeError}
+                Erro de persistencia: {erroColaborador}
               </Typography>
             )}
           </Stack>
         </Grid>
       </Grid>
 
-      <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+      <Dialog open={Boolean(colaboradorParaExcluir)} onClose={() => setColaboradorParaExcluir(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Excluir colaborador</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
-            Tem certeza que deseja excluir <strong>{deleteTarget?.name}</strong>? Esta acao nao pode ser desfeita.
+            Tem certeza que deseja excluir <strong>{colaboradorParaExcluir?.name}</strong>? Esta acao nao pode ser desfeita.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteTarget(null)} disabled={isDeletingEmployee}>
+          <Button onClick={() => setColaboradorParaExcluir(null)} disabled={estaExcluindoColaborador}>
             Cancelar
           </Button>
-          <Button variant="contained" color="error" onClick={confirmDeleteEmployee} disabled={isDeletingEmployee}>
+          <Button variant="contained" color="error" onClick={confirmarExclusaoColaborador} disabled={estaExcluindoColaborador}>
             Excluir
           </Button>
         </DialogActions>
@@ -650,3 +650,5 @@ function App() {
 }
 
 export default App
+
+

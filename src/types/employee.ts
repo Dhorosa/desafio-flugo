@@ -1,6 +1,6 @@
-export type EmployeeStatus = 'Ativo' | 'Inativo'
+export type StatusColaborador = 'Ativo' | 'Inativo'
 
-export type Employee = {
+export type Colaborador = {
   id: string
   name: string
   email: string
@@ -12,8 +12,8 @@ export type Employee = {
   workModel: 'Presencial' | 'Hibrido' | 'Remoto'
   salaryRange: string
   startDate: string
-  status: EmployeeStatus
+  status: StatusColaborador
   createdAt?: number
 }
 
-export type EmployeeInput = Omit<Employee, 'id' | 'createdAt'>
+export type EntradaColaborador = Omit<Colaborador, 'id' | 'createdAt'>
