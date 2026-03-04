@@ -282,10 +282,10 @@ function App() {
                   <Table>
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#f3f5f7' }}>
-                        <TableCell sx={{ fontWeight: 700 }}>Nome ?</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Email ?</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Departamento ?</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Status ?</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Nome</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Departamento</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                         <TableCell sx={{ fontWeight: 700 }} align="right">
                           Acoes
                         </TableCell>
