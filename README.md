@@ -8,7 +8,6 @@
 - Material UI
 - React Hook Form
 - Zod
-- Firebase Firestore
 
 ## Como executar localmente (passo a passo)
 
@@ -32,34 +31,26 @@ No Mac/Linux:
 cp .env.example .env.local
 ```
 
-3. Abra o arquivo `.env.local` e preencha com os dados do seu Firebase:
+3. Abra o arquivo `.env.local` e preencha com os valores do ambiente local:
 
 ```env
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
+# copie exatamente as chaves que já existem no .env.example
+# exemplo:
+VITE_CHAVE_EXEMPLO=...
 ```
 
-4. Onde pegar essas variaveis no Firebase:
-
-- Firebase Console > Project Settings (engrenagem) > Your apps > App Web
-- Copie do objeto `firebaseConfig` e cole no `.env.local`
-
-5. Rode o projeto:
+4. Rode o projeto:
 
 ```bash
 npm run dev
 ```
 
-6. Abra no navegador:
+5. Abra no navegador:
 
 - http://localhost:5173
 
 ## Se der erro ao iniciar
 
 - Verifique se o arquivo se chama exatamente `.env.local`
-- Verifique se todas as variaveis `VITE_FIREBASE_*` foram preenchidas
+- Verifique se todas as linhas do `.env.local` foram preenchidas
 - Reinicie o `npm run dev` depois de alterar o `.env.local`
