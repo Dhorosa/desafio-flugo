@@ -2,10 +2,13 @@ import {
   Timestamp,
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import type { Employee, EmployeeInput } from '../types/employee'
@@ -49,4 +52,14 @@ export const createEmployee = async (employee: EmployeeInput) => {
     ...employee,
     createdAt: serverTimestamp(),
   })
+}
+
+export const updateEmployee = async (employeeId: string, employee: EmployeeInput) => {
+  const employeeRef = doc(db, EMPLOYEE_COLLECTION, employeeId)
+  await updateDoc(employeeRef, employee)
+}
+
+export const deleteEmployee = async (employeeId: string) => {
+  const employeeRef = doc(db, EMPLOYEE_COLLECTION, employeeId)
+  await deleteDoc(employeeRef)
 }

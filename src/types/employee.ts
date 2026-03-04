@@ -4,9 +4,13 @@ export type Employee = {
   id: string
   name: string
   email: string
+  phone: string
+  birthDate: string
   department: string
   role: string
-  phone: string
+  manager: string
+  workModel: 'Presencial' | 'Hibrido' | 'Remoto'
+  salaryRange: string
   startDate: string
   status: EmployeeStatus
   createdAt?: number
