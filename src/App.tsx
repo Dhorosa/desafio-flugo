@@ -242,7 +242,7 @@ function App() {
         >
           <Box
             component="img"
-            src="/flugo-logo.svg"
+            src="/flugo-logo1.svg"
             alt="Flugo"
             sx={{ width: 140, height: 'auto', objectFit: 'contain', mb: 2 }}
           />
@@ -268,7 +268,7 @@ function App() {
             >
             <Box
               component="img"
-              src="/flugo-logo.svg"
+              src="/flugo-logo1.svg"
               alt="Flugo"
               sx={{
                 width: 120,
