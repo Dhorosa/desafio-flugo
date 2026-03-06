@@ -266,12 +266,12 @@ function App() {
                 width: '100%',
               }}
             >
-              <Typography
-                variant="h6"
-                sx={{ display: { xs: 'block', md: 'none' }, color: '#1f2937', fontWeight: 800 }}
-              >
-                Flugo
-              </Typography>
+            <Box
+              component="img"
+              src="/flugo-logo.svg"
+              alt="Flugo"
+              sx={{ width: 120, display: { xs: 'block', md: 'none' } }}
+            />
               <Avatar alt="Recruiter" src="https://i.pravatar.cc/100?img=12" sx={{ ml: 'auto' }} />
             </Box>
 
