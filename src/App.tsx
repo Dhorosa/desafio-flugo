@@ -237,7 +237,7 @@ function App() {
             p: 3.5,
             flexDirection: 'column',
             gap: 4,
-            bgcolor: '#f9fbfc',
+            bgcolor: '#ffffff',
           }}
         >
           <Box
