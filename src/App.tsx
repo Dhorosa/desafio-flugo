@@ -244,7 +244,7 @@ function App() {
             component="img"
             src="/flugo-logo.svg"
             alt="Flugo"
-            sx={{ width: 140, mb: 2 }}
+            sx={{ width: 140, height: 'auto', objectFit: 'contain', mb: 2 }}
           />
           <Stack spacing={1.5}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
@@ -270,7 +270,12 @@ function App() {
               component="img"
               src="/flugo-logo.svg"
               alt="Flugo"
-              sx={{ width: 120, display: { xs: 'block', md: 'none' } }}
+              sx={{
+                width: 120,
+                height: 'auto',
+                objectFit: 'contain',
+                display: { xs: 'block', md: 'none' },
+              }}
             />
               <Avatar alt="Recruiter" src="https://i.pravatar.cc/100?img=12" sx={{ ml: 'auto' }} />
             </Box>
