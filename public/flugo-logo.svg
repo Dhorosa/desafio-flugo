@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 50">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d168"/>
+      <stop offset="100%" stop-color="#47d159"/>
+    </linearGradient>
+  </defs>
+  <path d="M12 25c-2 0-3 2-3 2s5-1 6-1 12 4 22 2 23-18 25-21c1-1 2-1 3-1 1 0 6 1 6 1l-2 5s-7-3-10 0c-3 3-8 14-20 17-12 3-21 0-25-2z" fill="url(#grad)"/>
+  <text x="52" y="32" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="24" font-weight="600" fill="#121212">flugo</text>
+</svg>

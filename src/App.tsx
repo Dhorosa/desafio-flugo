@@ -240,9 +240,12 @@ function App() {
             bgcolor: '#f9fbfc',
           }}
         >
-          <Typography variant="h5" sx={{ color: '#1f2937', fontWeight: 800 }}>
-            Flugo
-          </Typography>
+          <Box
+            component="img"
+            src="/flugo-logo.svg"
+            alt="Flugo"
+            sx={{ width: 140, mb: 2 }}
+          />
           <Stack spacing={1.5}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
               <PeopleOutlineIcon fontSize="small" />
