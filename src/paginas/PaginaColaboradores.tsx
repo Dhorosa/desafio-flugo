@@ -164,7 +164,7 @@ function PaginaColaboradores() {
         emailNormalizado.length === 0 || normalizarTexto(colaborador.email).includes(emailNormalizado)
       const departamentoCorresponde =
         departamentoNormalizado.length === 0 ||
-        normalizarTexto(colaborador.department ?? '').includes(departamentoNormalizado)
+        normalizarTexto(colaborador.department ?? '') === departamentoNormalizado
 
       return nomeCorresponde && emailCorresponde && departamentoCorresponde
     })
