@@ -1,7 +1,8 @@
-﻿import {
+import {
   Avatar,
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
@@ -32,10 +33,11 @@ import { Controller, useForm } from 'react-hook-form'
 import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import {
+  atualizarColaborador,
   criarColaborador,
   excluirColaborador,
+  excluirColaboradores,
   listarColaboradores,
-  atualizarColaborador,
 } from '../services/employees'
 import type { Colaborador } from '../types/employee'
 import { usarAutenticacao } from '../contextos/autenticacao'
@@ -84,6 +86,13 @@ const valoresIniciais: ValoresFormulario = {
   startDate: '',
 }
 
+const normalizarTexto = (valor: string) =>
+  valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+
 function PaginaColaboradores() {
   const { usuario, sair } = usarAutenticacao()
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([])
@@ -95,6 +104,11 @@ function PaginaColaboradores() {
   const [erroColaborador, setErroColaborador] = useState<string | null>(null)
   const [colaboradorEmEdicao, setColaboradorEmEdicao] = useState<Colaborador | null>(null)
   const [colaboradorParaExcluir, setColaboradorParaExcluir] = useState<Colaborador | null>(null)
+  const [filtroNome, setFiltroNome] = useState('')
+  const [filtroEmail, setFiltroEmail] = useState('')
+  const [filtroDepartamento, setFiltroDepartamento] = useState('')
+  const [idsColaboradoresSelecionados, setIdsColaboradoresSelecionados] = useState<string[]>([])
+  const [exibirConfirmacaoExclusaoEmMassa, setExibirConfirmacaoExclusaoEmMassa] = useState(false)
 
   const {
     control,
@@ -114,6 +128,24 @@ function PaginaColaboradores() {
     [],
   )
 
+  const colaboradoresFiltrados = useMemo(() => {
+    const nomeNormalizado = normalizarTexto(filtroNome)
+    const emailNormalizado = normalizarTexto(filtroEmail)
+    const departamentoNormalizado = normalizarTexto(filtroDepartamento)
+
+    return colaboradores.filter((colaborador) => {
+      const nomeCorresponde =
+        nomeNormalizado.length === 0 || normalizarTexto(colaborador.name).includes(nomeNormalizado)
+      const emailCorresponde =
+        emailNormalizado.length === 0 || normalizarTexto(colaborador.email).includes(emailNormalizado)
+      const departamentoCorresponde =
+        departamentoNormalizado.length === 0 ||
+        normalizarTexto(colaborador.department ?? '').includes(departamentoNormalizado)
+
+      return nomeCorresponde && emailCorresponde && departamentoCorresponde
+    })
+  }, [colaboradores, filtroDepartamento, filtroEmail, filtroNome])
+
   useEffect(() => {
     const unsubscribe = listarColaboradores(
       (proximosColaboradores) => {
@@ -129,6 +161,14 @@ function PaginaColaboradores() {
 
     return () => unsubscribe()
   }, [])
+
+  useEffect(() => {
+    setIdsColaboradoresSelecionados((idsAtuais) =>
+      idsAtuais.filter((idColaborador) =>
+        colaboradores.some((colaborador) => colaborador.id === idColaborador),
+      ),
+    )
+  }, [colaboradores])
 
   const abrirFormularioCriacao = () => {
     setColaboradorEmEdicao(null)
@@ -169,7 +209,7 @@ function PaginaColaboradores() {
     const campos = camposPorEtapa[etapaAtiva]
     const etapaValida = await trigger(campos)
 
-    if (!etapaValida) {
+    if (!etapaValida && !colaboradorEmEdicao) {
       return
     }
 
@@ -205,6 +245,12 @@ function PaginaColaboradores() {
     } finally {
       setEstaSalvandoColaborador(false)
     }
+  }, (camposInvalidos) => {
+    const existemErrosNasInfosBasicas = camposPorEtapa[0].some((campo) => camposInvalidos[campo])
+
+    if (existemErrosNasInfosBasicas) {
+      setEtapaAtiva(0)
+    }
   })
 
   const confirmarExclusaoColaborador = async () => {
@@ -216,8 +262,14 @@ function PaginaColaboradores() {
       setEstaExcluindoColaborador(true)
       setErroColaborador(null)
       await excluirColaborador(colaboradorParaExcluir.id)
+      setIdsColaboradoresSelecionados((idsAtuais) =>
+        idsAtuais.filter((idColaborador) => idColaborador !== colaboradorParaExcluir.id),
+      )
       setColaboradorParaExcluir(null)
-      voltarParaLista()
+
+      if (modoVisualizacao === 'form') {
+        voltarParaLista()
+      }
     } catch (error) {
       const mensagem = error instanceof Error ? error.message : 'Falha ao excluir colaborador.'
       setErroColaborador(mensagem)
@@ -226,6 +278,70 @@ function PaginaColaboradores() {
     }
   }
 
+  const confirmarExclusaoEmMassa = async () => {
+    if (idsColaboradoresSelecionados.length === 0) {
+      return
+    }
+
+    try {
+      setEstaExcluindoColaborador(true)
+      setErroColaborador(null)
+      await excluirColaboradores(idsColaboradoresSelecionados)
+      setIdsColaboradoresSelecionados([])
+      setExibirConfirmacaoExclusaoEmMassa(false)
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Falha ao excluir colaboradores.'
+      setErroColaborador(mensagem)
+    } finally {
+      setEstaExcluindoColaborador(false)
+    }
+  }
+
+  const alternarSelecaoColaborador = (idColaborador: string) => {
+    setIdsColaboradoresSelecionados((idsAtuais) =>
+      idsAtuais.includes(idColaborador)
+        ? idsAtuais.filter((idAtual) => idAtual !== idColaborador)
+        : [...idsAtuais, idColaborador],
+    )
+  }
+
+  const alternarSelecaoTodosColaboradores = () => {
+    if (
+      colaboradoresFiltrados.length > 0 &&
+      colaboradoresFiltrados.every((colaborador) =>
+        idsColaboradoresSelecionados.includes(colaborador.id),
+      )
+    ) {
+      setIdsColaboradoresSelecionados((idsAtuais) =>
+        idsAtuais.filter(
+          (idColaborador) =>
+            !colaboradoresFiltrados.some((colaborador) => colaborador.id === idColaborador),
+        ),
+      )
+      return
+    }
+
+    setIdsColaboradoresSelecionados((idsAtuais) => {
+      const proximosIds = new Set(idsAtuais)
+      colaboradoresFiltrados.forEach((colaborador) => {
+        proximosIds.add(colaborador.id)
+      })
+      return Array.from(proximosIds)
+    })
+  }
+
+  const todosSelecionados =
+    colaboradoresFiltrados.length > 0 &&
+    colaboradoresFiltrados.every((colaborador) =>
+      idsColaboradoresSelecionados.includes(colaborador.id),
+    )
+
+  const algunsSelecionados =
+    colaboradoresFiltrados.some((colaborador) =>
+      idsColaboradoresSelecionados.includes(colaborador.id),
+    ) && !todosSelecionados
+
+  const estaEmEdicao = Boolean(colaboradorEmEdicao)
   const progresso = etapaAtiva === 0 ? 0 : 50
 
   return (
@@ -268,19 +384,22 @@ function PaginaColaboradores() {
                 width: '100%',
               }}
             >
-            <Box
-              component="img"
-              src="/flugo-logo1.svg"
-              alt="Flugo"
-              sx={{
-                width: 120,
-                height: 'auto',
-                objectFit: 'contain',
-                display: { xs: 'block', md: 'none' },
-              }}
-            />
+              <Box
+                component="img"
+                src="/flugo-logo1.svg"
+                alt="Flugo"
+                sx={{
+                  width: 120,
+                  height: 'auto',
+                  objectFit: 'contain',
+                  display: { xs: 'block', md: 'none' },
+                }}
+              />
               <Stack direction="row" spacing={1.5} alignItems="center" sx={{ ml: 'auto' }}>
-                <Stack spacing={0.2} sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'flex-end' }}>
+                <Stack
+                  spacing={0.2}
+                  sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'flex-end' }}
+                >
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {usuario?.email ?? 'Usuario autenticado'}
                   </Typography>
@@ -308,78 +427,168 @@ function PaginaColaboradores() {
                   </Button>
                 </Stack>
 
+                <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                  <Stack spacing={2.5}>
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                          label="Buscar por nome"
+                          value={filtroNome}
+                          onChange={(event) => setFiltroNome(event.target.value)}
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                          label="Buscar por e-mail"
+                          value={filtroEmail}
+                          onChange={(event) => setFiltroEmail(event.target.value)}
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 4 }}>
+                        <FormControl fullWidth>
+                          <InputLabel id="filtro-departamento-label">Departamento</InputLabel>
+                          <Select
+                            labelId="filtro-departamento-label"
+                            label="Departamento"
+                            value={filtroDepartamento}
+                            onChange={(event) => setFiltroDepartamento(event.target.value)}
+                          >
+                            <MenuItem value="">Todos</MenuItem>
+                            {departamentos.map((departamento) => (
+                              <MenuItem key={departamento} value={departamento}>
+                                {departamento}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={1.5}
+                      justifyContent="space-between"
+                      alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    >
+                      <Typography variant="body2" color="text.secondary">
+                        {colaboradoresFiltrados.length} colaborador(es) encontrado(s)
+                      </Typography>
+
+                      {idsColaboradoresSelecionados.length > 0 && (
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          onClick={() => setExibirConfirmacaoExclusaoEmMassa(true)}
+                          disabled={estaExcluindoColaborador}
+                        >
+                          Excluir selecionados ({idsColaboradoresSelecionados.length})
+                        </Button>
+                      )}
+                    </Stack>
+                  </Stack>
+                </Paper>
+
                 <Paper sx={{ overflow: 'hidden', borderRadius: 3 }}>
                   <Box sx={{ overflowX: 'auto' }}>
-                  <Table>
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: '#f3f5f7' }}>
-                        <TableCell sx={{ fontWeight: 700 }}>Nome</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>E-mail</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Departamento</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }} align="right">
-                          Ações
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {estaCarregandoColaboradores && (
-                        <TableRow>
-                          <TableCell colSpan={5}>Carregando colaboradores...</TableCell>
-                        </TableRow>
-                      )}
-                      {!estaCarregandoColaboradores && colaboradores.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5}>Nenhum colaborador cadastrado.</TableCell>
-                        </TableRow>
-                      )}
-                      {colaboradores.map((colaborador, index) => (
-                        <TableRow key={colaborador.id} hover>
-                          <TableCell>
-                            <Stack direction="row" spacing={1.5} alignItems="center">
-                              <Avatar
-                                sx={{
-                                  width: 34,
-                                  height: 34,
-                                  bgcolor: coresAvatar[index % coresAvatar.length],
-                                  color: '#111827',
-                                  fontSize: 14,
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {colaborador.name
-                                  .split(' ')
-                                  .slice(0, 2)
-                                  .map((part) => part[0])
-                                  .join('')}
-                              </Avatar>
-                              <Typography>{colaborador.name}</Typography>
-                            </Stack>
-                          </TableCell>
-                          <TableCell>{colaborador.email}</TableCell>
-                          <TableCell>{colaborador.department}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={colaborador.status}
-                              color={colaborador.status === 'Ativo' ? 'success' : 'error'}
-                              size="small"
-                              variant="outlined"
+                    <Table>
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: '#f3f5f7' }}>
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              checked={todosSelecionados}
+                              indeterminate={algunsSelecionados}
+                              onChange={alternarSelecaoTodosColaboradores}
+                              disabled={colaboradoresFiltrados.length === 0}
                             />
                           </TableCell>
-                          <TableCell align="right">
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
-                              <Button size="small" onClick={() => abrirFormularioEdicao(colaborador)}>
-                                Alterar
-                              </Button>
-                              <Button size="small" color="error" onClick={() => setColaboradorParaExcluir(colaborador)}>
-                                Excluir
-                              </Button>
-                            </Stack>
+                          <TableCell sx={{ fontWeight: 700 }}>Nome</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>E-mail</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Departamento</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }} align="right">
+                            Acoes
                           </TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHead>
+                      <TableBody>
+                        {estaCarregandoColaboradores && (
+                          <TableRow>
+                            <TableCell colSpan={6}>Carregando colaboradores...</TableCell>
+                          </TableRow>
+                        )}
+                        {!estaCarregandoColaboradores && colaboradores.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6}>Nenhum colaborador cadastrado.</TableCell>
+                          </TableRow>
+                        )}
+                        {!estaCarregandoColaboradores &&
+                          colaboradores.length > 0 &&
+                          colaboradoresFiltrados.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={6}>
+                                Nenhum colaborador encontrado com os filtros aplicados.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        {colaboradoresFiltrados.map((colaborador, index) => (
+                          <TableRow key={colaborador.id} hover>
+                            <TableCell padding="checkbox">
+                              <Checkbox
+                                checked={idsColaboradoresSelecionados.includes(colaborador.id)}
+                                onChange={() => alternarSelecaoColaborador(colaborador.id)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Stack direction="row" spacing={1.5} alignItems="center">
+                                <Avatar
+                                  sx={{
+                                    width: 34,
+                                    height: 34,
+                                    bgcolor: coresAvatar[index % coresAvatar.length],
+                                    color: '#111827',
+                                    fontSize: 14,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {colaborador.name
+                                    .split(' ')
+                                    .slice(0, 2)
+                                    .map((part) => part[0])
+                                    .join('')}
+                                </Avatar>
+                                <Typography>{colaborador.name}</Typography>
+                              </Stack>
+                            </TableCell>
+                            <TableCell>{colaborador.email}</TableCell>
+                            <TableCell>{colaborador.department}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={colaborador.status}
+                                color={colaborador.status === 'Ativo' ? 'success' : 'error'}
+                                size="small"
+                                variant="outlined"
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <Button size="small" onClick={() => abrirFormularioEdicao(colaborador)}>
+                                  Alterar
+                                </Button>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  onClick={() => setColaboradorParaExcluir(colaborador)}
+                                >
+                                  Excluir
+                                </Button>
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </Box>
                 </Paper>
               </Stack>
@@ -389,8 +598,8 @@ function PaginaColaboradores() {
                   <Typography variant="body1" sx={{ color: '#1f2937', fontWeight: 600 }}>
                     Colaboradores
                   </Typography>
-                  <Typography>•</Typography>
-                  <Typography variant="body1">Cadastrar Colaborador</Typography>
+                  <Typography>�</Typography>
+                  <Typography variant="body1">{estaEmEdicao ? 'Alterar Colaborador' : 'Cadastrar Colaborador'}</Typography>
                 </Stack>
 
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -403,29 +612,42 @@ function PaginaColaboradores() {
                 </Stack>
 
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} alignItems="flex-start">
-                  <Stack sx={{ minWidth: { xs: 0, md: 190 }, width: { xs: '100%', md: 'auto' } }} spacing={2.5}>
+                  <Stack
+                    sx={{ minWidth: { xs: 0, md: 190 }, width: { xs: '100%', md: 'auto' } }}
+                    spacing={2.5}
+                  >
                     {etapasFormulario.map((label, index) => {
-                      const etapaConcluida = etapaAtiva > index
                       const etapaAtual = etapaAtiva === index
 
                       return (
-                        <Stack key={label} direction="row" spacing={1.5} alignItems="center">
+                        <Stack
+                          key={label}
+                          direction="row"
+                          spacing={1.5}
+                          alignItems="center"
+                          onClick={() => {
+                            if (estaEmEdicao) {
+                              setEtapaAtiva(index)
+                            }
+                          }}
+                          sx={{ cursor: estaEmEdicao ? 'pointer' : 'default' }}
+                        >
                           <Box
                             sx={{
                               width: 34,
                               height: 34,
                               borderRadius: '50%',
-                              bgcolor: etapaConcluida || etapaAtual ? '#22c55e' : '#e5e7eb',
-                              color: etapaConcluida || etapaAtual ? '#fff' : '#64748b',
+                              bgcolor: etapaAtual ? '#22c55e' : '#e5e7eb',
+                              color: etapaAtual ? '#fff' : '#64748b',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               fontWeight: 700,
                             }}
                           >
-                            {etapaConcluida ? 'V' : index + 1}
+                            {index + 1}
                           </Box>
-                          <Typography sx={{ fontWeight: etapaAtual || etapaConcluida ? 700 : 600, color: '#334155' }}>
+                          <Typography sx={{ fontWeight: etapaAtual ? 700 : 600, color: '#334155' }}>
                             {label}
                           </Typography>
                         </Stack>
@@ -437,6 +659,7 @@ function PaginaColaboradores() {
                     <Typography variant="h4" sx={{ mb: 3, color: '#64748b', fontWeight: 700 }}>
                       {etapaAtiva === 0 ? 'Informacoes Basicas' : 'Informacoes Profissionais'}
                     </Typography>
+
 
                     <Box component="form" onSubmit={enviarFormulario} noValidate>
                       {etapaAtiva === 0 && (
@@ -611,12 +834,13 @@ function PaginaColaboradores() {
                         spacing={2}
                       >
                         <Stack direction="row" spacing={2}>
-                          <Button variant="text" onClick={retornarEtapa} sx={{ fontWeight: 700 }}>
+                          <Button type="button" variant="text" onClick={retornarEtapa} sx={{ fontWeight: 700 }}>
                             Voltar
                           </Button>
 
                           {colaboradorEmEdicao && etapaAtiva === 1 && (
                             <Button
+                              type="button"
                               variant="text"
                               color="error"
                               onClick={() => setColaboradorParaExcluir(colaboradorEmEdicao)}
@@ -628,8 +852,9 @@ function PaginaColaboradores() {
                           )}
                         </Stack>
 
-                        {etapaAtiva === 0 ? (
+                        {etapaAtiva === 0 && !colaboradorEmEdicao ? (
                           <Button
+                            type="button"
                             variant="contained"
                             onClick={avancarEtapa}
                             sx={{ px: 3, py: 1.2, width: { xs: '100%', sm: 'auto' } }}
@@ -662,18 +887,60 @@ function PaginaColaboradores() {
         </Grid>
       </Grid>
 
-      <Dialog open={Boolean(colaboradorParaExcluir)} onClose={() => setColaboradorParaExcluir(null)} maxWidth="xs" fullWidth>
+      <Dialog
+        open={Boolean(colaboradorParaExcluir)}
+        onClose={() => setColaboradorParaExcluir(null)}
+        maxWidth="xs"
+        fullWidth
+      >
         <DialogTitle>Excluir colaborador</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
-            Tem certeza que deseja excluir <strong>{colaboradorParaExcluir?.name}</strong>? Esta acao nao pode ser desfeita.
+            Tem certeza que deseja excluir <strong>{colaboradorParaExcluir?.name}</strong>? Esta acao
+            nao pode ser desfeita.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setColaboradorParaExcluir(null)} disabled={estaExcluindoColaborador}>
             Cancelar
           </Button>
-          <Button variant="contained" color="error" onClick={confirmarExclusaoColaborador} disabled={estaExcluindoColaborador}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={confirmarExclusaoColaborador}
+            disabled={estaExcluindoColaborador}
+          >
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={exibirConfirmacaoExclusaoEmMassa}
+        onClose={() => setExibirConfirmacaoExclusaoEmMassa(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Excluir colaboradores</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Tem certeza que deseja excluir {idsColaboradoresSelecionados.length} colaborador(es) de uma
+            vez? Esta acao nao pode ser desfeita.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setExibirConfirmacaoExclusaoEmMassa(false)}
+            disabled={estaExcluindoColaborador}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={confirmarExclusaoEmMassa}
+            disabled={estaExcluindoColaborador}
+          >
             Excluir
           </Button>
         </DialogActions>
@@ -683,5 +950,6 @@ function PaginaColaboradores() {
 }
 
 export default PaginaColaboradores
+
 
 

@@ -63,3 +63,7 @@ export const excluirColaborador = async (idColaborador: string) => {
   const referenciaColaborador = doc(db, COLECAO_COLABORADORES, idColaborador)
   await deleteDoc(referenciaColaborador)
 }
+
+export const excluirColaboradores = async (idsColaboradores: string[]) => {
+  await Promise.all(idsColaboradores.map((idColaborador) => excluirColaborador(idColaborador)))
+}
