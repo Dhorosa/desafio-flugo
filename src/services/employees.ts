@@ -80,3 +80,31 @@ export const excluirColaborador = async (idColaborador: string) => {
 export const excluirColaboradores = async (idsColaboradores: string[]) => {
   await Promise.all(idsColaboradores.map((idColaborador) => excluirColaborador(idColaborador)))
 }
+
+export const atualizarDepartamentoDosColaboradores = async (
+  idsColaboradores: string[],
+  nomeDepartamento: string,
+) => {
+  await Promise.all(
+    idsColaboradores.map((idColaborador) => {
+      const referenciaColaborador = doc(db, COLECAO_COLABORADORES, idColaborador)
+      return updateDoc(referenciaColaborador, { department: nomeDepartamento })
+    }),
+  )
+}
+
+export const renomearDepartamentoDosColaboradores = async (
+  colaboradores: Colaborador[],
+  nomeDepartamentoAtual: string,
+  novoNomeDepartamento: string,
+) => {
+  const idsColaboradores = colaboradores
+    .filter((colaborador) => colaborador.department === nomeDepartamentoAtual)
+    .map((colaborador) => colaborador.id)
+
+  if (idsColaboradores.length === 0) {
+    return
+  }
+
+  await atualizarDepartamentoDosColaboradores(idsColaboradores, novoNomeDepartamento)
+}

@@ -2,6 +2,7 @@
 import { ProvedorAutenticacao } from './contextos/autenticacao'
 import { ProtegeRota } from './componentes/ProtegeRota'
 import PaginaColaboradores from './paginas/PaginaColaboradores'
+import PaginaDepartamentos from './paginas/PaginaDepartamentos'
 import PaginaLogin from './paginas/PaginaLogin'
 import PaginaNaoEncontrada from './paginas/PaginaNaoEncontrada'
 
@@ -15,6 +16,7 @@ function App() {
           <Route element={<ProtegeRota />}>
             <Route path="/" element={<Navigate to="/colaboradores" replace />} />
             <Route path="/colaboradores" element={<PaginaColaboradores />} />
+            <Route path="/departamentos" element={<PaginaDepartamentos />} />
           </Route>
 
           <Route path="*" element={<PaginaNaoEncontrada />} />

@@ -27,10 +27,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import ApartmentIcon from '@mui/icons-material/Apartment'
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
 import { useEffect, useMemo, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import { z } from 'zod'
 import {
   atualizarColaborador,
@@ -39,6 +41,8 @@ import {
   excluirColaboradores,
   listarColaboradores,
 } from '../services/employees'
+import { listarDepartamentos } from '../services/departments'
+import type { Departamento } from '../types/department'
 import type { Colaborador } from '../types/employee'
 import { usarAutenticacao } from '../contextos/autenticacao'
 
@@ -53,7 +57,7 @@ const esquemaFormulario = z.object({
   status: z.enum(['Ativo', 'Inativo']),
   department: z.string().min(2, 'Selecione um departamento.'),
   role: z.string().min(2, 'Informe o cargo.'),
-  hierarchyLevel: z.enum(['Junior', 'Pleno', 'Senior']),
+  hierarchyLevel: z.enum(['Junior', 'Pleno', 'Senior', 'Gestor']),
   manager: z.string(),
   workModel: z.enum(['Presencial', 'Hibrido', 'Remoto']),
   baseSalary: z.string().min(1, 'Informe o salario base.'),
@@ -69,9 +73,23 @@ const camposPorEtapa: Array<Array<keyof ValoresFormulario>> = [
   ['department', 'role', 'hierarchyLevel', 'manager', 'workModel', 'baseSalary', 'startDate'],
 ]
 
-const departamentos = ['Design', 'TI', 'Marketing', 'Produto', 'Financeiro', 'RH']
-const niveisHierarquicos: ValoresFormulario['hierarchyLevel'][] = ['Junior', 'Pleno', 'Senior']
+const niveisHierarquicos: ValoresFormulario['hierarchyLevel'][] = [
+  'Junior',
+  'Pleno',
+  'Senior',
+  'Gestor',
+]
 const modelosTrabalho: ValoresFormulario['workModel'][] = ['Presencial', 'Hibrido', 'Remoto']
+const cargosPorDepartamento: Record<string, string[]> = {
+  Design: ['Designer Junior', 'Designer Pleno', 'UI Designer'],
+  TI: ['Analista de Suporte', 'Desenvolvedor Front-end', 'Desenvolvedor Back-end'],
+  'Tecnologia da Informação': ['Analista de Suporte', 'Desenvolvedor Front-end', 'Desenvolvedor Back-end'],
+  Marketing: ['Analista de Marketing', 'Social Media', 'Copywriter'],
+  Produto: ['Analista de Produto', 'Product Owner', 'Product Manager'],
+  Financeiro: ['Analista Financeiro', 'Assistente Financeiro', 'Controlador Financeiro'],
+  RH: ['Analista de RH', 'Assistente de RH', 'Recrutador'],
+  'Relações Humanas': ['Analista de RH', 'Assistente de RH', 'Recrutador'],
+}
 
 const valoresIniciais: ValoresFormulario = {
   name: '',
@@ -98,6 +116,7 @@ const normalizarTexto = (valor: string) =>
 function PaginaColaboradores() {
   const { usuario, sair } = usarAutenticacao()
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([])
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [modoVisualizacao, setModoVisualizacao] = useState<'list' | 'form'>('list')
   const [etapaAtiva, setEtapaAtiva] = useState(0)
   const [estaCarregandoColaboradores, setEstaCarregandoColaboradores] = useState(true)
@@ -117,8 +136,10 @@ function PaginaColaboradores() {
     register,
     handleSubmit,
     setError,
+    setValue,
     trigger,
     reset,
+    watch,
     formState: { errors },
   } = useForm<ValoresFormulario>({
     resolver: zodResolver(esquemaFormulario),
@@ -149,14 +170,74 @@ function PaginaColaboradores() {
     })
   }, [colaboradores, filtroDepartamento, filtroEmail, filtroNome])
 
-  const gestoresDisponiveis = useMemo(
-    () =>
-      colaboradores.filter((colaborador) => {
-        const naoEhOMesmoColaborador = colaborador.id !== colaboradorEmEdicao?.id
-        return naoEhOMesmoColaborador
-      }),
-    [colaboradorEmEdicao?.id, colaboradores],
+  const nomesDepartamentos = useMemo(
+    () => departamentos.map((departamento) => departamento.name),
+    [departamentos],
   )
+
+  const mapaColaboradoresPorId = useMemo(
+    () => new Map(colaboradores.map((colaborador) => [colaborador.id, colaborador])),
+    [colaboradores],
+  )
+
+  const departamentoSelecionado = watch('department')
+  const cargoSelecionado = watch('role')
+  const nivelHierarquicoSelecionado = watch('hierarchyLevel')
+  const gestorSelecionado = watch('manager')
+
+  const gestoresDisponiveis = useMemo(
+    () => {
+      const departamentoAtual = departamentos.find(
+        (departamento) => departamento.name === departamentoSelecionado,
+      )
+
+      if (!departamentoAtual?.managerId) {
+        return []
+      }
+
+      const gestorDoDepartamento = mapaColaboradoresPorId.get(departamentoAtual.managerId)
+
+      if (!gestorDoDepartamento || gestorDoDepartamento.id === colaboradorEmEdicao?.id) {
+        return []
+      }
+
+      return [gestorDoDepartamento]
+    },
+    [colaboradorEmEdicao?.id, departamentoSelecionado, departamentos, mapaColaboradoresPorId],
+  )
+
+  const cargosDisponiveis = useMemo(() => {
+    const cargosBase = cargosPorDepartamento[departamentoSelecionado] ?? []
+
+    if (cargoSelecionado && !cargosBase.includes(cargoSelecionado)) {
+      return [cargoSelecionado, ...cargosBase]
+    }
+
+    return cargosBase
+  }, [cargoSelecionado, departamentoSelecionado])
+
+  useEffect(() => {
+    if (nivelHierarquicoSelecionado === 'Gestor') {
+      setValue('manager', '')
+    }
+  }, [nivelHierarquicoSelecionado, setValue])
+
+  useEffect(() => {
+    if (nivelHierarquicoSelecionado === 'Gestor') {
+      return
+    }
+
+    if (gestoresDisponiveis.length === 0) {
+      setValue('manager', '')
+      return
+    }
+
+    const gestorValido = gestoresDisponiveis.some((gestor) => gestor.name === gestorSelecionado)
+
+    if (!gestorValido) {
+      setValue('manager', '')
+    }
+  }, [gestorSelecionado, gestoresDisponiveis, nivelHierarquicoSelecionado, setValue])
 
   useEffect(() => {
     const unsubscribe = listarColaboradores(
@@ -168,6 +249,19 @@ function PaginaColaboradores() {
       (error) => {
         setErroColaborador(error.message)
         setEstaCarregandoColaboradores(false)
+      },
+    )
+
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = listarDepartamentos(
+      (proximosDepartamentos) => {
+        setDepartamentos(proximosDepartamentos)
+      },
+      (error) => {
+        setErroColaborador(error.message)
       },
     )
 
@@ -202,7 +296,7 @@ function PaginaColaboradores() {
       status: colaborador.status,
       department: colaborador.department ?? '',
       role: colaborador.role ?? '',
-      hierarchyLevel: colaborador.hierarchyLevel === 'Gestor' ? 'Senior' : colaborador.hierarchyLevel ?? 'Junior',
+      hierarchyLevel: colaborador.hierarchyLevel ?? 'Junior',
       manager: colaborador.manager ?? '',
       workModel: colaborador.workModel ?? 'Hibrido',
       baseSalary: colaborador.baseSalary ?? colaborador.salaryRange ?? '',
@@ -245,7 +339,11 @@ function PaginaColaboradores() {
       setEstaSalvandoColaborador(true)
       setErroColaborador(null)
 
-      if (gestoresDisponiveis.length > 0 && data.manager.trim().length === 0) {
+      if (
+        data.hierarchyLevel !== 'Gestor' &&
+        gestoresDisponiveis.length > 0 &&
+        data.manager.trim().length === 0
+      ) {
         setError('manager', {
           type: 'manual',
           message: 'Selecione o gestor responsavel.',
@@ -387,12 +485,24 @@ function PaginaColaboradores() {
             sx={{ width: 140, height: 'auto', objectFit: 'contain', mb: 2 }}
           />
           <Stack spacing={1.5}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
-              <PeopleOutlineIcon fontSize="small" />
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                Colaboradores
-              </Typography>
-            </Box>
+            <Button
+              component={RouterLink}
+              to="/colaboradores"
+              variant="text"
+              sx={{ justifyContent: 'flex-start', color: 'text.primary', gap: 1, fontWeight: 700 }}
+              startIcon={<PeopleOutlineIcon fontSize="small" />}
+            >
+              Colaboradores
+            </Button>
+            <Button
+              component={RouterLink}
+              to="/departamentos"
+              variant="text"
+              sx={{ justifyContent: 'flex-start', color: 'text.secondary', gap: 1 }}
+              startIcon={<ApartmentIcon fontSize="small" />}
+            >
+              Departamentos
+            </Button>
           </Stack>
         </Grid>
 
@@ -478,7 +588,7 @@ function PaginaColaboradores() {
                             onChange={(event) => setFiltroDepartamento(event.target.value)}
                           >
                             <MenuItem value="">Todos</MenuItem>
-                            {departamentos.map((departamento) => (
+                            {nomesDepartamentos.map((departamento) => (
                               <MenuItem key={departamento} value={departamento}>
                                 {departamento}
                               </MenuItem>
@@ -620,7 +730,7 @@ function PaginaColaboradores() {
                   <Typography variant="body1" sx={{ color: '#1f2937', fontWeight: 600 }}>
                     Colaboradores
                   </Typography>
-                  <Typography>ï¿½</Typography>
+                  <Typography>/</Typography>
                   <Typography variant="body1">{estaEmEdicao ? 'Alterar Colaborador' : 'Cadastrar Colaborador'}</Typography>
                 </Stack>
 
@@ -758,7 +868,7 @@ function PaginaColaboradores() {
                                 control={control}
                                 render={({ field }) => (
                                   <Select labelId="department-label" label="Departamento" {...field}>
-                                    {departamentos.map((department) => (
+                                    {nomesDepartamentos.map((department) => (
                                       <MenuItem key={department} value={department}>
                                         {department}
                                       </MenuItem>
@@ -769,17 +879,39 @@ function PaginaColaboradores() {
                               <Typography variant="caption" color="error" sx={{ pl: 1.8, pt: 0.5 }}>
                                 {errors.department?.message}
                               </Typography>
+                              {nomesDepartamentos.length === 0 && (
+                                <Typography variant="caption" sx={{ pl: 1.8, pt: 0.5, color: '#64748b' }}>
+                                  Cadastre um departamento antes de salvar um colaborador.
+                                </Typography>
+                              )}
                             </FormControl>
                           </Grid>
 
                           <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                              label="Cargo"
-                              fullWidth
-                              {...register('role')}
-                              error={Boolean(errors.role)}
-                              helperText={errors.role?.message}
-                            />
+                            <FormControl fullWidth error={Boolean(errors.role)}>
+                              <InputLabel id="role-label">Cargo</InputLabel>
+                              <Controller
+                                name="role"
+                                control={control}
+                                render={({ field }) => (
+                                  <Select labelId="role-label" label="Cargo" {...field}>
+                                    {cargosDisponiveis.map((cargo) => (
+                                      <MenuItem key={cargo} value={cargo}>
+                                        {cargo}
+                                      </MenuItem>
+                                    ))}
+                                  </Select>
+                                )}
+                              />
+                              <Typography variant="caption" color="error" sx={{ pl: 1.8, pt: 0.5 }}>
+                                {errors.role?.message}
+                              </Typography>
+                              {departamentoSelecionado.length === 0 && (
+                                <Typography variant="caption" sx={{ pl: 1.8, pt: 0.5, color: '#64748b' }}>
+                                  Selecione um departamento para liberar as opcoes de cargo.
+                                </Typography>
+                              )}
+                            </FormControl>
                           </Grid>
 
                           <Grid size={{ xs: 12, md: 6 }}>
@@ -804,37 +936,39 @@ function PaginaColaboradores() {
                             </FormControl>
                           </Grid>
 
-                          <Grid size={{ xs: 12, md: 6 }}>
-                            <FormControl fullWidth error={Boolean(errors.manager)}>
-                              <InputLabel id="manager-label">Gestor responsavel</InputLabel>
-                              <Controller
-                                name="manager"
-                                control={control}
-                                render={({ field }) => (
-                                  <Select labelId="manager-label" label="Gestor responsavel" {...field}>
-                                    <MenuItem value="">
-                                      {gestoresDisponiveis.length === 0
-                                        ? 'Nenhum colaborador cadastrado'
-                                        : 'Selecione um colaborador'}
-                                    </MenuItem>
-                                    {gestoresDisponiveis.map((gestor) => (
-                                      <MenuItem key={gestor.id} value={gestor.name}>
-                                        {gestor.name}
+                          {nivelHierarquicoSelecionado !== 'Gestor' && (
+                            <Grid size={{ xs: 12, md: 6 }}>
+                              <FormControl fullWidth error={Boolean(errors.manager)}>
+                                <InputLabel id="manager-label">Gestor responsavel</InputLabel>
+                                <Controller
+                                  name="manager"
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Select labelId="manager-label" label="Gestor responsavel" {...field}>
+                                      <MenuItem value="">
+                                        {gestoresDisponiveis.length === 0
+                                          ? 'Nenhum gestor definido para este departamento'
+                                          : 'Selecione o gestor do departamento'}
                                       </MenuItem>
-                                    ))}
-                                  </Select>
-                                )}
-                              />
-                              <Typography variant="caption" color="error" sx={{ pl: 1.8, pt: 0.5 }}>
-                                {errors.manager?.message}
-                              </Typography>
-                              {gestoresDisponiveis.length === 0 && (
-                                <Typography variant="caption" sx={{ pl: 1.8, pt: 0.5, color: '#64748b' }}>
-                                  Esse campo fica opcional enquanto nao existir colaborador cadastrado.
+                                      {gestoresDisponiveis.map((gestor) => (
+                                        <MenuItem key={gestor.id} value={gestor.name}>
+                                          {gestor.name}
+                                        </MenuItem>
+                                      ))}
+                                    </Select>
+                                  )}
+                                />
+                                <Typography variant="caption" color="error" sx={{ pl: 1.8, pt: 0.5 }}>
+                                  {errors.manager?.message}
                                 </Typography>
-                              )}
-                            </FormControl>
-                          </Grid>
+                                {gestoresDisponiveis.length === 0 && (
+                                  <Typography variant="caption" sx={{ pl: 1.8, pt: 0.5, color: '#64748b' }}>
+                                    O gestor responsavel depende do departamento escolhido.
+                                  </Typography>
+                                )}
+                              </FormControl>
+                            </Grid>
+                          )}
 
                           <Grid size={{ xs: 12, md: 6 }}>
                             <FormControl fullWidth error={Boolean(errors.workModel)}>
@@ -1004,6 +1138,7 @@ function PaginaColaboradores() {
 }
 
 export default PaginaColaboradores
+
 
 
 
