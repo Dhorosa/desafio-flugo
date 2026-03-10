@@ -1,4 +1,5 @@
 export type StatusColaborador = 'Ativo' | 'Inativo'
+export type NivelHierarquico = 'Junior' | 'Pleno' | 'Senior' | 'Gestor'
 
 export type Colaborador = {
   id: string
@@ -8,9 +9,11 @@ export type Colaborador = {
   birthDate: string
   department: string
   role: string
+  hierarchyLevel: NivelHierarquico
   manager: string
   workModel: 'Presencial' | 'Hibrido' | 'Remoto'
-  salaryRange: string
+  baseSalary: string
+  salaryRange?: string
   startDate: string
   status: StatusColaborador
   createdAt?: number

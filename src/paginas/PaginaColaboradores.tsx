@@ -53,9 +53,10 @@ const esquemaFormulario = z.object({
   status: z.enum(['Ativo', 'Inativo']),
   department: z.string().min(2, 'Selecione um departamento.'),
   role: z.string().min(2, 'Informe o cargo.'),
-  manager: z.string().min(2, 'Informe o gestor imediato.'),
+  hierarchyLevel: z.enum(['Junior', 'Pleno', 'Senior']),
+  manager: z.string(),
   workModel: z.enum(['Presencial', 'Hibrido', 'Remoto']),
-  salaryRange: z.string().min(1, 'Selecione uma faixa salarial.'),
+  baseSalary: z.string().min(1, 'Informe o salario base.'),
   startDate: z.string().min(1, 'Informe a data de admissao.'),
 })
 
@@ -65,12 +66,12 @@ const etapasFormulario = ['Infos Basicas', 'Infos Profissionais']
 
 const camposPorEtapa: Array<Array<keyof ValoresFormulario>> = [
   ['name', 'email', 'phone', 'birthDate', 'status'],
-  ['department', 'role', 'manager', 'workModel', 'salaryRange', 'startDate'],
+  ['department', 'role', 'hierarchyLevel', 'manager', 'workModel', 'baseSalary', 'startDate'],
 ]
 
 const departamentos = ['Design', 'TI', 'Marketing', 'Produto', 'Financeiro', 'RH']
+const niveisHierarquicos: ValoresFormulario['hierarchyLevel'][] = ['Junior', 'Pleno', 'Senior']
 const modelosTrabalho: ValoresFormulario['workModel'][] = ['Presencial', 'Hibrido', 'Remoto']
-const faixasSalariais = ['R$ 2.000 - R$ 4.000', 'R$ 4.000 - R$ 7.000', 'R$ 7.000 - R$ 12.000', 'R$ 12.000+']
 
 const valoresIniciais: ValoresFormulario = {
   name: '',
@@ -80,9 +81,10 @@ const valoresIniciais: ValoresFormulario = {
   status: 'Ativo',
   department: '',
   role: '',
+  hierarchyLevel: 'Junior',
   manager: '',
   workModel: 'Hibrido',
-  salaryRange: '',
+  baseSalary: '',
   startDate: '',
 }
 
@@ -114,6 +116,7 @@ function PaginaColaboradores() {
     control,
     register,
     handleSubmit,
+    setError,
     trigger,
     reset,
     formState: { errors },
@@ -145,6 +148,15 @@ function PaginaColaboradores() {
       return nomeCorresponde && emailCorresponde && departamentoCorresponde
     })
   }, [colaboradores, filtroDepartamento, filtroEmail, filtroNome])
+
+  const gestoresDisponiveis = useMemo(
+    () =>
+      colaboradores.filter((colaborador) => {
+        const naoEhOMesmoColaborador = colaborador.id !== colaboradorEmEdicao?.id
+        return naoEhOMesmoColaborador
+      }),
+    [colaboradorEmEdicao?.id, colaboradores],
+  )
 
   useEffect(() => {
     const unsubscribe = listarColaboradores(
@@ -190,9 +202,10 @@ function PaginaColaboradores() {
       status: colaborador.status,
       department: colaborador.department ?? '',
       role: colaborador.role ?? '',
+      hierarchyLevel: colaborador.hierarchyLevel === 'Gestor' ? 'Senior' : colaborador.hierarchyLevel ?? 'Junior',
       manager: colaborador.manager ?? '',
       workModel: colaborador.workModel ?? 'Hibrido',
-      salaryRange: colaborador.salaryRange ?? '',
+      baseSalary: colaborador.baseSalary ?? colaborador.salaryRange ?? '',
       startDate: colaborador.startDate ?? '',
     })
     setModoVisualizacao('form')
@@ -231,6 +244,15 @@ function PaginaColaboradores() {
     try {
       setEstaSalvandoColaborador(true)
       setErroColaborador(null)
+
+      if (gestoresDisponiveis.length > 0 && data.manager.trim().length === 0) {
+        setError('manager', {
+          type: 'manual',
+          message: 'Selecione o gestor responsavel.',
+        })
+        setEtapaAtiva(1)
+        return
+      }
 
       if (colaboradorEmEdicao) {
         await atualizarColaborador(colaboradorEmEdicao.id, data)
@@ -598,7 +620,7 @@ function PaginaColaboradores() {
                   <Typography variant="body1" sx={{ color: '#1f2937', fontWeight: 600 }}>
                     Colaboradores
                   </Typography>
-                  <Typography>�</Typography>
+                  <Typography>ï¿½</Typography>
                   <Typography variant="body1">{estaEmEdicao ? 'Alterar Colaborador' : 'Cadastrar Colaborador'}</Typography>
                 </Stack>
 
@@ -761,13 +783,57 @@ function PaginaColaboradores() {
                           </Grid>
 
                           <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                              label="Gestor imediato"
-                              fullWidth
-                              {...register('manager')}
-                              error={Boolean(errors.manager)}
-                              helperText={errors.manager?.message}
-                            />
+                            <FormControl fullWidth error={Boolean(errors.hierarchyLevel)}>
+                              <InputLabel id="hierarchy-level-label">Nivel hierarquico</InputLabel>
+                              <Controller
+                                name="hierarchyLevel"
+                                control={control}
+                                render={({ field }) => (
+                                  <Select labelId="hierarchy-level-label" label="Nivel hierarquico" {...field}>
+                                    {niveisHierarquicos.map((nivelHierarquico) => (
+                                      <MenuItem key={nivelHierarquico} value={nivelHierarquico}>
+                                        {nivelHierarquico}
+                                      </MenuItem>
+                                    ))}
+                                  </Select>
+                                )}
+                              />
+                              <Typography variant="caption" color="error" sx={{ pl: 1.8, pt: 0.5 }}>
+                                {errors.hierarchyLevel?.message}
+                              </Typography>
+                            </FormControl>
+                          </Grid>
+
+                          <Grid size={{ xs: 12, md: 6 }}>
+                            <FormControl fullWidth error={Boolean(errors.manager)}>
+                              <InputLabel id="manager-label">Gestor responsavel</InputLabel>
+                              <Controller
+                                name="manager"
+                                control={control}
+                                render={({ field }) => (
+                                  <Select labelId="manager-label" label="Gestor responsavel" {...field}>
+                                    <MenuItem value="">
+                                      {gestoresDisponiveis.length === 0
+                                        ? 'Nenhum colaborador cadastrado'
+                                        : 'Selecione um colaborador'}
+                                    </MenuItem>
+                                    {gestoresDisponiveis.map((gestor) => (
+                                      <MenuItem key={gestor.id} value={gestor.name}>
+                                        {gestor.name}
+                                      </MenuItem>
+                                    ))}
+                                  </Select>
+                                )}
+                              />
+                              <Typography variant="caption" color="error" sx={{ pl: 1.8, pt: 0.5 }}>
+                                {errors.manager?.message}
+                              </Typography>
+                              {gestoresDisponiveis.length === 0 && (
+                                <Typography variant="caption" sx={{ pl: 1.8, pt: 0.5, color: '#64748b' }}>
+                                  Esse campo fica opcional enquanto nao existir colaborador cadastrado.
+                                </Typography>
+                              )}
+                            </FormControl>
                           </Grid>
 
                           <Grid size={{ xs: 12, md: 6 }}>
@@ -790,25 +856,13 @@ function PaginaColaboradores() {
                           </Grid>
 
                           <Grid size={{ xs: 12, md: 6 }}>
-                            <FormControl fullWidth error={Boolean(errors.salaryRange)}>
-                              <InputLabel id="salary-range-label">Faixa salarial</InputLabel>
-                              <Controller
-                                name="salaryRange"
-                                control={control}
-                                render={({ field }) => (
-                                  <Select labelId="salary-range-label" label="Faixa salarial" {...field}>
-                                    {faixasSalariais.map((salaryRange) => (
-                                      <MenuItem key={salaryRange} value={salaryRange}>
-                                        {salaryRange}
-                                      </MenuItem>
-                                    ))}
-                                  </Select>
-                                )}
-                              />
-                              <Typography variant="caption" color="error" sx={{ pl: 1.8, pt: 0.5 }}>
-                                {errors.salaryRange?.message}
-                              </Typography>
-                            </FormControl>
+                            <TextField
+                              label="Salario base"
+                              fullWidth
+                              {...register('baseSalary')}
+                              error={Boolean(errors.baseSalary)}
+                              helperText={errors.baseSalary?.message}
+                            />
                           </Grid>
 
                           <Grid size={{ xs: 12, md: 6 }}>

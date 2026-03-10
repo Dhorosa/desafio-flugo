@@ -28,13 +28,26 @@ export const listarColaboradores = (
     consultaColaboradores,
     (snapshot) => {
       const colaboradores = snapshot.docs.map((doc) => {
-        const data = doc.data() as Omit<Colaborador, 'id' | 'createdAt'> & {
+        const data = doc.data() as Partial<Omit<Colaborador, 'id' | 'createdAt'>> & {
           createdAt?: Timestamp
+          salaryRange?: string
         }
 
         return {
           id: doc.id,
           ...data,
+          name: data.name ?? '',
+          email: data.email ?? '',
+          phone: data.phone ?? '',
+          birthDate: data.birthDate ?? '',
+          department: data.department ?? '',
+          role: data.role ?? '',
+          hierarchyLevel: data.hierarchyLevel ?? 'Junior',
+          manager: data.manager ?? '',
+          workModel: data.workModel ?? 'Hibrido',
+          baseSalary: data.baseSalary ?? data.salaryRange ?? '',
+          startDate: data.startDate ?? '',
+          status: data.status ?? 'Ativo',
           createdAt: data.createdAt?.toMillis(),
         }
       })
